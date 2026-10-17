@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intercambio Familiar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fbf6ef;
+    --card: #ffffff;
+    --ink: #2b2320;
+    --muted: #7a6d66;
+    --accent: #b8322a;
+    --accent-ink: #ffffff;
+    --green: #2f6b4f;
+    --line: #eadfd3;
+    --chip: #f4ebe0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1513;
+      --card: #251e1b;
+      --ink: #f4ece4;
+      --muted: #b3a59c;
+      --accent: #e0584d;
+      --accent-ink: #1a1513;
+      --green: #6fbf97;
+      --line: #3a302b;
+      --chip: #2f2724;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Nunito", system-ui, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px 48px;
+  }
+  main { width: 100%; max-width: 520px; }
+  header { text-align: center; margin-bottom: 24px; }
+  .emoji { font-size: 44px; line-height: 1; }
+  h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 800;
+    font-size: clamp(30px, 8vw, 40px);
+    margin: 10px 0 6px;
+    letter-spacing: -0.02em;
+  }
+  .sub { color: var(--muted); margin: 0; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 24px 20px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.06);
+  }
+  .step { font-weight: 700; margin: 0 0 14px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+  }
+  .name {
+    font: inherit;
+    font-weight: 600;
+    padding: 14px 10px;
+    border-radius: 14px;
+    border: 2px solid transparent;
+    background: var(--chip);
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform .1s, border-color .15s;
+  }
+  .name:hover { border-color: var(--accent); }
+  .name:active { transform: scale(.97); }
+  .name.done { opacity: .45; cursor: not-allowed; text-decoration: line-through; }
+  .name.done:hover { border-color: transparent; }
+  .hidden { display: none !important; }
+  .center { text-align: center; }
+  .big {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 800;
+    font-size: clamp(36px, 11vw, 54px);
+    color: var(--accent);
+    margin: 8px 0 4px;
+    min-height: 1.2em;
+  }
+  .rolling { color: var(--muted); }
+  .btn {
+    font: inherit;
+    font-weight: 700;
+    border: 0;
+    border-radius: 999px;
+    padding: 14px 26px;
+    cursor: pointer;
+    background: var(--accent);
+    color: var(--accent-ink);
+    margin: 6px;
+  }
+  .btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  .note { color: var(--muted); font-size: 14px; margin-top: 18px; }
+  .ok { color: var(--green); font-weight: 700; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 22px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="emoji">🎁</div>
+    <h1>Intercambio Familiar</h1>
+    <p class="sub">Toca tu nombre y descubre a quién le vas a regalar</p>
+  </header>
+
+  <section class="card" id="pick">
+    <p class="step">¿Quién eres?</p>
+    <div class="grid" id="grid"></div>
+    <p class="note">Solo toca <b>tu</b> nombre. Una vez que veas el resultado, este teléfono queda guardado con tu nombre.</p>
+  </section>
+
+  <section class="card center hidden" id="confirm">
+    <p class="step">¿Seguro que eres…</p>
+    <div class="big" id="confirmName"></div>
+    <p class="sub">No hagas trampa 😉</p>
+    <div style="margin-top:18px">
+      <button class="btn" id="yes">Sí, soy yo</button>
+      <button class="btn ghost" id="no">No, regresar</button>
+    </div>
+  </section>
+
+  <section class="card center hidden" id="result">
+    <p class="step" id="hello"></p>
+    <p class="sub">Te tocó regalarle a:</p>
+    <div class="big" id="giftee"></div>
+    <p class="ok hidden" id="secret">🤫 ¡Es secreto, no se lo digas a nadie!</p>
+    <p class="note">Tu resultado ya quedó fijo y no va a cambiar, aunque vuelvas a abrir la página.</p>
+  </section>
+
+  <footer>Feliz Navidad 🎄</footer>
+</main>
+
+<script>
+  // Sorteo hecho una sola vez (un solo círculo: nadie se regala a sí mismo
+  // ni hay parejas que se regalen mutuamente). Va codificado para que no se lea a simple vista.
+  const DATA = {"Emiliano":"IwAVCA==","Maca":"OAgVHQsTDQ8=","Victoria":"KwURCBY=","Edgar":"LQ0XHAAIBQ==","Claudia":"IA4XAQ==","Noah":"PQAEABA=","Sarit":"Lw8SGwEA","Andrea":"IhQfGkQnARw=","Luis Fer":"IQwXGw==","Omar":"KBMfDQU=","Frida":"IwAPGwU=","Mayra":"KwwfBQ0ACgE="};
+  const ORDER = ["Omar","Mayra","Edgar","Luis Fer","Andrea","Maca","Sarit","Emiliano","Frida","Claudia","Victoria","Noah"];
+  const KEY = "navidad";
+  const STORE = "intercambio-familia-2026";
+
+  const decode = s => [...atob(s)].map((c, i) =>
+    String.fromCharCode(c.charCodeAt(0) ^ KEY.charCodeAt(i % KEY.length))).join("");
+
+  const $ = id => document.getElementById(id);
+  const show = id => ["pick", "confirm", "result"].forEach(s => $(s).classList.toggle("hidden", s !== id));
+
+  function saved() {
+    try { return localStorage.getItem(STORE); } catch (e) { return null; }
+  }
+  function save(name) {
+    try { localStorage.setItem(STORE, name); } catch (e) {}
+  }
+
+  let chosen = null;
+
+  ORDER.forEach(name => {
+    const b = document.createElement("button");
+    b.className = "name";
+    b.textContent = name;
+    b.onclick = () => { chosen = name; $("confirmName").textContent = name + "?"; show("confirm"); };
+    $("grid").appendChild(b);
+  });
+
+  $("no").onclick = () => show("pick");
+  $("yes").onclick = () => { save(chosen); reveal(chosen, true); };
+
+  function reveal(name, animate) {
+    show("result");
+    $("hello").textContent = "¡Hola, " + name + "!";
+    const target = decode(DATA[name]);
+    const el = $("giftee");
+    if (!animate) { el.textContent = target; $("secret").classList.remove("hidden"); return; }
+    const others = ORDER.filter(n => n !== name);
+    let t = 0;
+    el.classList.add("rolling");
+    const spin = () => {
+      el.textContent = others[Math.floor(Math.random() * others.length)];
+      t++;
+      if (t < 22) setTimeout(spin, 50 + t * 8);
+      else {
+        el.classList.remove("rolling");
+        el.textContent = target + " 🎉";
+        $("secret").classList.remove("hidden");
+      }
+    };
+    spin();
+  }
+
+  const me = saved();
+  if (me && DATA[me]) reveal(me, false);
+</script>
+</body>
+</html>
