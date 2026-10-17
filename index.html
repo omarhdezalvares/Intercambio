@@ -148,6 +148,7 @@
     <div class="big" id="giftee"></div>
     <p class="ok hidden" id="secret">🤫 ¡Es secreto, no se lo digas a nadie!</p>
     <p class="note">Tu resultado ya quedó fijo y no va a cambiar, aunque vuelvas a abrir la página. Este teléfono queda guardado con tu nombre.</p>
+    <button class="btn ghost" id="logout">Salir / cambiar de persona</button>
   </section>
 
   <footer>Feliz Navidad 🎄</footer>
@@ -198,6 +199,13 @@
   });
 
   $("no").onclick = () => show("pick");
+  $("logout").onclick = () => {
+    if (!confirm("¿Salir? Para volver a ver un resultado vas a necesitar el código otra vez.")) return;
+    try { localStorage.removeItem(STORE); } catch (e) {}
+    $("giftee").textContent = "";
+    $("secret").classList.add("hidden");
+    show("pick");
+  };
   $("yes").onclick = async () => {
     const code = $("code").value.replace(/\s/g, "").toUpperCase();
     const target = await decode(chosen, code);
