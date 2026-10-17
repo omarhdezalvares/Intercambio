@@ -134,7 +134,7 @@
     <p class="step">Hola</p>
     <div class="big" id="confirmName"></div>
     <p class="sub">Escribe tu código secreto (te lo mandó Omar por privado)</p>
-    <input id="code" class="code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="••••••">
+    <input id="code" class="code" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="••••••">
     <p class="err hidden" id="err">Ese código no es correcto. Revísalo e inténtalo otra vez.</p>
     <div style="margin-top:12px">
       <button class="btn" id="yes">Ver a quién me tocó</button>
@@ -156,13 +156,15 @@
 <script>
   // Sorteo hecho una sola vez (un solo círculo: nadie se regala a sí mismo
   // ni hay parejas que se regalen mutuamente). Cada resultado solo se abre con el código de esa persona.
-  const DATA = {"Omar":"FQEPF1YgJw==","Mayra":"DB5wAC02OAUQEw==","Edgar":"Fn19dEY8IQU=","Luis Fer":"DgpuGzslPhAI","Andrea":"GhJoeDU1IA==","Maca":"eQ8NajIwJBU=","Sarit":"HXMCCTkxIQ==","Emiliano":"Ag9uEC0rIB4aDQ==","Frida":"HxhxCCtbKhsICg4=","Claudia":"GAVrBTg1NwMTHAU=","Victoria":"HhljcydQNxs=","Noah":"AX9wDi0xPA4=","Vanessa":"dnJsHyUsJUEoAAE="};
+  const DATA = {"Omar":"EuX+YQ1cEg==","Mayra":"uOSNX1WV5AzcOw==","Edgar":"0J/6I01mEPY=","Luis Fer":"CKjp9I680mDg","Andrea":"Uk21jhc8Xg==","Maca":"iNGKrl67ZTs=","Sarit":"7DgO+48RMQ==","Emiliano":"ZBAYbN56+zu/Eg==","Frida":"pf/T7oZ4WW9WDH4=","Claudia":"Hqqx4Gbo0IANzxM=","Victoria":"pP9kU1NbFDE=","Noah":"RONK6JpRPJg=","Vanessa":"Z00vmdQLuditCyU="};
   const ORDER = ["Omar","Mayra","Edgar","Luis Fer","Andrea","Maca","Sarit","Emiliano","Frida","Claudia","Victoria","Noah","Vanessa"];
   const STORE = "intercambio-familia-2026";
 
-  const decode = (name, code) => {
-    const key = code + name;
-    const bytes = Uint8Array.from(atob(DATA[name]), (c, i) => c.charCodeAt(0) ^ key.charCodeAt(i % key.length));
+  // La llave sale del código completo: si una sola letra está mal, no se descifra nada.
+  const decode = async (name, code) => {
+    if (!DATA[name] || !/^[A-Z0-9]{6}$/.test(code)) return null;
+    const key = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code + "|" + name)));
+    const bytes = Uint8Array.from(atob(DATA[name]), (c, i) => c.charCodeAt(0) ^ key[i]);
     let text;
     try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch (e) { return null; }
     return text.startsWith("OK:") ? text.slice(3) : null;
@@ -196,9 +198,9 @@
   });
 
   $("no").onclick = () => show("pick");
-  $("yes").onclick = () => {
-    const code = $("code").value.trim().toUpperCase();
-    const target = decode(chosen, code);
+  $("yes").onclick = async () => {
+    const code = $("code").value.replace(/\s/g, "").toUpperCase();
+    const target = await decode(chosen, code);
     if (!target) { $("err").classList.remove("hidden"); return; }
     save(chosen, code);
     reveal(chosen, target, true);
@@ -229,8 +231,10 @@
   // Si este teléfono ya eligió, solo muestra su resultado (no la lista de nombres).
   let me = null;
   try { me = JSON.parse(saved()); } catch (e) {}
-  const mine = me && DATA[me.name] && decode(me.name, me.code);
-  if (mine) reveal(me.name, mine, false);
+  (async () => {
+    const mine = me && me.name && me.code && await decode(me.name, me.code);
+    if (mine) reveal(me.name, mine, false);
+  })();
 </script>
 </body>
 </html>
