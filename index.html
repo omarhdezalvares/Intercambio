@@ -105,6 +105,13 @@
   }
   .btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
   .note { color: var(--muted); font-size: 14px; margin-top: 18px; }
+  .code {
+    font: inherit; font-weight: 700; font-size: 26px; letter-spacing: .3em; text-align: center;
+    width: 100%; max-width: 240px; margin-top: 16px; padding: 12px; text-transform: uppercase;
+    border-radius: 14px; border: 2px solid var(--line); background: var(--chip); color: var(--ink);
+  }
+  .code:focus { outline: none; border-color: var(--accent); }
+  .err { color: var(--accent); font-weight: 600; font-size: 14px; }
   .ok { color: var(--green); font-weight: 700; }
   footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 22px; }
 </style>
@@ -120,15 +127,17 @@
   <section class="card" id="pick">
     <p class="step">¿Quién eres?</p>
     <div class="grid" id="grid"></div>
-    <p class="note">Solo toca <b>tu</b> nombre. Una vez que veas el resultado, este teléfono queda guardado con tu nombre.</p>
+    <p class="note">Solo toca <b>tu</b> nombre y escribe tu código secreto. Sin el código nadie puede ver lo que le tocó a otra persona.</p>
   </section>
 
   <section class="card center hidden" id="confirm">
-    <p class="step">¿Seguro que eres…</p>
+    <p class="step">Hola</p>
     <div class="big" id="confirmName"></div>
-    <p class="sub">No hagas trampa 😉</p>
-    <div style="margin-top:18px">
-      <button class="btn" id="yes">Sí, soy yo</button>
+    <p class="sub">Escribe tu código secreto (te lo mandó Omar por privado)</p>
+    <input id="code" class="code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="••••••">
+    <p class="err hidden" id="err">Ese código no es correcto. Revísalo e inténtalo otra vez.</p>
+    <div style="margin-top:12px">
+      <button class="btn" id="yes">Ver a quién me tocó</button>
       <button class="btn ghost" id="no">No, regresar</button>
     </div>
   </section>
@@ -138,7 +147,7 @@
     <p class="sub">Te tocó regalarle a:</p>
     <div class="big" id="giftee"></div>
     <p class="ok hidden" id="secret">🤫 ¡Es secreto, no se lo digas a nadie!</p>
-    <p class="note">Tu resultado ya quedó fijo y no va a cambiar, aunque vuelvas a abrir la página.</p>
+    <p class="note">Tu resultado ya quedó fijo y no va a cambiar, aunque vuelvas a abrir la página. Este teléfono queda guardado con tu nombre.</p>
   </section>
 
   <footer>Feliz Navidad 🎄</footer>
@@ -146,14 +155,18 @@
 
 <script>
   // Sorteo hecho una sola vez (un solo círculo: nadie se regala a sí mismo
-  // ni hay parejas que se regalen mutuamente). Va codificado para que no se lea a simple vista.
-  const DATA = {"Mayra":"LQ0XHAAIBQ==","Claudia":"OAgVHQsTDQ8=","Victoria":"KwURCBY=","Edgar":"KBMfDQU=","Frida":"KwwfBQ0ACgE=","Emiliano":"OAAYDBcSBQ==","Vanessa":"IhQfGkQnARw=","Luis Fer":"Lw8SGwEA","Andrea":"IwAVCA==","Maca":"PQAEABA=","Sarit":"IQwXGw==","Omar":"IA4XAQ==","Noah":"IwAPGwU="};
+  // ni hay parejas que se regalen mutuamente). Cada resultado solo se abre con el código de esa persona.
+  const DATA = {"Omar":"FQEPF1YgJw==","Mayra":"DB5wAC02OAUQEw==","Edgar":"Fn19dEY8IQU=","Luis Fer":"DgpuGzslPhAI","Andrea":"GhJoeDU1IA==","Maca":"eQ8NajIwJBU=","Sarit":"HXMCCTkxIQ==","Emiliano":"Ag9uEC0rIB4aDQ==","Frida":"HxhxCCtbKhsICg4=","Claudia":"GAVrBTg1NwMTHAU=","Victoria":"HhljcydQNxs=","Noah":"AX9wDi0xPA4=","Vanessa":"dnJsHyUsJUEoAAE="};
   const ORDER = ["Omar","Mayra","Edgar","Luis Fer","Andrea","Maca","Sarit","Emiliano","Frida","Claudia","Victoria","Noah","Vanessa"];
-  const KEY = "navidad";
   const STORE = "intercambio-familia-2026";
 
-  const decode = s => [...atob(s)].map((c, i) =>
-    String.fromCharCode(c.charCodeAt(0) ^ KEY.charCodeAt(i % KEY.length))).join("");
+  const decode = (name, code) => {
+    const key = code + name;
+    const bytes = Uint8Array.from(atob(DATA[name]), (c, i) => c.charCodeAt(0) ^ key.charCodeAt(i % key.length));
+    let text;
+    try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch (e) { return null; }
+    return text.startsWith("OK:") ? text.slice(3) : null;
+  };
 
   const $ = id => document.getElementById(id);
   const show = id => ["pick", "confirm", "result"].forEach(s => $(s).classList.toggle("hidden", s !== id));
@@ -161,8 +174,8 @@
   function saved() {
     try { return localStorage.getItem(STORE); } catch (e) { return null; }
   }
-  function save(name) {
-    try { localStorage.setItem(STORE, name); } catch (e) {}
+  function save(name, code) {
+    try { localStorage.setItem(STORE, JSON.stringify({ name, code })); } catch (e) {}
   }
 
   let chosen = null;
@@ -171,17 +184,30 @@
     const b = document.createElement("button");
     b.className = "name";
     b.textContent = name;
-    b.onclick = () => { chosen = name; $("confirmName").textContent = name + "?"; show("confirm"); };
+    b.onclick = () => {
+      chosen = name;
+      $("confirmName").textContent = name;
+      $("code").value = "";
+      $("err").classList.add("hidden");
+      show("confirm");
+      $("code").focus();
+    };
     $("grid").appendChild(b);
   });
 
   $("no").onclick = () => show("pick");
-  $("yes").onclick = () => { save(chosen); reveal(chosen, true); };
+  $("yes").onclick = () => {
+    const code = $("code").value.trim().toUpperCase();
+    const target = decode(chosen, code);
+    if (!target) { $("err").classList.remove("hidden"); return; }
+    save(chosen, code);
+    reveal(chosen, target, true);
+  };
+  $("code").addEventListener("keydown", e => { if (e.key === "Enter") $("yes").click(); });
 
-  function reveal(name, animate) {
+  function reveal(name, target, animate) {
     show("result");
     $("hello").textContent = "¡Hola, " + name + "!";
-    const target = decode(DATA[name]);
     const el = $("giftee");
     if (!animate) { el.textContent = target; $("secret").classList.remove("hidden"); return; }
     const others = ORDER.filter(n => n !== name);
@@ -200,8 +226,11 @@
     spin();
   }
 
-  const me = saved();
-  if (me && DATA[me]) reveal(me, false);
+  // Si este teléfono ya eligió, solo muestra su resultado (no la lista de nombres).
+  let me = null;
+  try { me = JSON.parse(saved()); } catch (e) {}
+  const mine = me && DATA[me.name] && decode(me.name, me.code);
+  if (mine) reveal(me.name, mine, false);
 </script>
 </body>
 </html>
